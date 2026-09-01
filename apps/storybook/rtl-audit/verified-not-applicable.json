@@ -1,1 +1,6 @@
-[]
+[
+  {
+    "component": "lab/SVGIcon",
+    "reason": "SVGIcon renders caller-supplied geometry; the caller's UI context determines whether a glyph is directional and needs mirroring."
+  }
+]

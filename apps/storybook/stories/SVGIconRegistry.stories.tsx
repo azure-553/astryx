@@ -225,8 +225,9 @@ function jsxSvgToIconDef(
 // Story
 // =============================================================================
 
-const meta: Meta = {
-  title: 'Lab/SVGIconRegistry',
+const meta: Meta<typeof SVGIcon> = {
+  title: 'Lab/SVGIcon',
+  component: SVGIcon,
 };
 export default meta;
 
@@ -250,9 +251,7 @@ export const DefaultRegistryIcons: StoryObj = {
 
     return (
       <Stack direction="vertical" gap={3}>
-        <Text type="large">
-          Default Registry Icons \u2192 SVGIcon System
-        </Text>
+        <Text type="large">Default Registry Icons \u2192 SVGIcon System</Text>
         <Text type="supporting">
           {converted.length} icons auto-converted. Heuristic: containment-based
           layer classification (only elements fully contained within a larger
