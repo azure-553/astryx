@@ -17,7 +17,14 @@
  * - /packages/cli/assets/templates/blocks/components/Layout/ (showcase blocks)
  */
 
-import {type ReactNode, useMemo} from 'react';
+import {
+  isValidElement,
+  type ReactElement,
+  type ReactNode,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import * as stylex from '@stylexjs/stylex';
 import {LayoutAreaContext, type LayoutArea} from './LayoutAreaContext';
 import {LayoutSlotsContext, type LayoutSlots} from './LayoutSlotsContext';
@@ -28,6 +35,12 @@ import {mergeProps} from '../utils';
 import type {BaseProps} from '../BaseProps';
 import type {SizeValue, SpacingStep} from '../utils/types';
 import {themeProps} from '../utils/themeProps';
+import {focusOutlineProps} from '../utils/focusOutline.stylex';
+import {useTranslator} from '../i18n';
+import {focusVars} from '../theme/tokens.stylex';
+import {useIsomorphicLayoutEffect} from '../hooks/useIsomorphicLayoutEffect';
+import {LayoutContent, type LayoutContentProps} from './LayoutContent';
+import {LayoutPanel, type LayoutPanelProps} from './LayoutPanel';
 import {
   layoutPaddingOuterXVarStyles,
   layoutPaddingOuterYVarStyles,
@@ -67,6 +80,56 @@ const styles = stylex.create({
   middle: {
     flex: 1,
     minHeight: 0,
+    width: '100%',
+  },
+  middleConstrained: {
+    boxSizing: 'border-box',
+    maxWidth: 'var(--layout-content-width, none)',
+    marginInline: 'auto',
+  },
+  middleScrollable: {
+    overflow: 'auto',
+  },
+  middleScrollableExpanded: {
+    scrollbarGutter: 'stable both-edges',
+  },
+  middleExpandedRow: {
+    boxSizing: 'border-box',
+    width: '100%',
+    maxWidth: 'var(--layout-content-width, none)',
+    minHeight: '100%',
+    marginInline: 'auto',
+  },
+  middleRowPassthrough: {
+    display: 'contents',
+  },
+  middleFocusInset: {
+    outlineOffset: {
+      default: null,
+      ':focus-visible': `calc(-1 * ${focusVars['--focus-outline-width']})`,
+    },
+  },
+  contentLanePinned: {
+    alignSelf: 'flex-start',
+    height: '100%',
+    position: 'sticky',
+    top: 0,
+  },
+  contentLanePinnedExpanded: {
+    height: 'var(--layout-middle-client-height, 100%)',
+    maxHeight: 'var(--layout-middle-client-height, 100%)',
+  },
+  sideLanePinned: {
+    alignSelf: 'flex-start',
+    display: 'flex',
+    flexShrink: 0,
+    height: '100%',
+    position: 'sticky',
+    top: 0,
+  },
+  sideLanePinnedExpanded: {
+    height: 'var(--layout-middle-client-height, 100%)',
+    maxHeight: 'var(--layout-middle-client-height, 100%)',
   },
   // When full bleed, set outer padding variables to 0 so child components touch container edges
   fullBleed: {
@@ -79,12 +142,87 @@ const dynamicStyles = stylex.create({
   contentWidthVar: (width: SizeValue) => ({
     '--layout-content-width': typeof width === 'number' ? `${width}px` : width,
   }),
-  contentWidth: (width: SizeValue) => ({
-    width: '100%',
-    maxWidth: typeof width === 'number' ? `${width}px` : width,
-    marginInline: 'auto',
-  }),
 });
+
+/**
+ * Full-width scroll alignment requires subtracting contentWidth in CSS.
+ * Intrinsic sizing keywords cannot participate in that arithmetic, so they
+ * preserve the existing constrained-row behavior.
+ */
+function supportsFullWidthScrollport(width: SizeValue | undefined): boolean {
+  if (width == null || typeof width === 'number') {
+    return true;
+  }
+
+  const value = width.trim().toLowerCase();
+  return (
+    value === '0' ||
+    /^-?(?:\d+(?:\.\d+)?|\.\d+)(?:[a-z]+|%)$/.test(value) ||
+    /^(?:calc|min|max|clamp)\(/.test(value)
+  );
+}
+
+function isDirectRegion<Props>(
+  node: ReactNode,
+  component: (props: Props) => ReactNode,
+): node is ReactElement<Props> {
+  return isValidElement<Props>(node) && node.type === component;
+}
+
+function regionUsesMiddleScroll<Props extends {isScrollable?: boolean}>(
+  node: ReactNode,
+  component: (props: Props) => ReactNode,
+): boolean {
+  return isDirectRegion(node, component) && node.props.isScrollable === false;
+}
+
+function getRegionLabel<Props extends {label?: string}>(
+  node: ReactNode,
+  component: (props: Props) => ReactNode,
+): string | undefined {
+  return isValidElement<Props>(node) && node.type === component
+    ? node.props.label
+    : undefined;
+}
+
+interface DetectedRegion {
+  usesMiddleScroll: boolean;
+  label?: string;
+}
+
+interface DetectedRegions {
+  start: DetectedRegion;
+  content: DetectedRegion;
+  end: DetectedRegion;
+}
+
+function sameDetectedRegion(a: DetectedRegion, b: DetectedRegion): boolean {
+  return a.usesMiddleScroll === b.usesMiddleScroll && a.label === b.label;
+}
+
+function sameDetectedRegions(a: DetectedRegions, b: DetectedRegions): boolean {
+  return (
+    sameDetectedRegion(a.start, b.start) &&
+    sameDetectedRegion(a.content, b.content) &&
+    sameDetectedRegion(a.end, b.end)
+  );
+}
+
+function detectDomRegion(
+  element: Element | null,
+  expectedRegion: 'content' | 'panel' | 'header' | 'footer',
+): DetectedRegion {
+  const isDirectRegion =
+    element?.getAttribute('data-layout-region') === expectedRegion;
+  return {
+    usesMiddleScroll:
+      isDirectRegion &&
+      element?.getAttribute('data-layout-scroll-owner') === 'middle',
+    label: isDirectRegion
+      ? (element?.getAttribute('aria-label') ?? undefined)
+      : undefined,
+  };
+}
 
 export interface LayoutProps extends Omit<BaseProps, 'content'> {
   /**
@@ -98,11 +236,20 @@ export interface LayoutProps extends Omit<BaseProps, 'content'> {
   content?: ReactNode;
 
   /**
-   * Maximum width of the content within each slot (header, content, footer,
-   * panels). Dividers remain full-bleed. Content is centered with
+   * Maximum width of the aligned content within each slot (header, content,
+   * footer, panels). Dividers remain full-bleed. Content is centered with
    * `margin-inline: auto` when narrower than the available space.
    *
+   * `contentWidth` always includes the complete start + content + end
+   * composition. In a fill-height layout, slots whose top-level rendered region
+   * is a LayoutContent or LayoutPanel with `isScrollable={false}` move together in the middle scrollport
+   * while regions with the default `isScrollable={true}` remain pinned and
+   * scroll independently.
+   *
    * Numbers are treated as pixels, strings are used as-is (e.g., '60ch').
+   * Bare `var(...)` values use the constrained-scrollport fallback because
+   * their resolved value may be intrinsic; wrap a guaranteed length in
+   * `calc(...)` to use the expanded middle scrollport.
    * Common page widths:
    * - `640` — forms, settings, text-focused pages
    * - `960` — content pages, component demos, wider layouts
@@ -222,7 +369,7 @@ function AreaProvider({
  * />
  * ```
  */
-export function Layout({
+function LayoutWrapper({
   children,
   content,
   contentWidth,
@@ -238,6 +385,7 @@ export function Layout({
   className,
   style,
 }: LayoutProps) {
+  const t = useTranslator();
   const isFill = height === 'fill';
   // Children are a shorthand for the content slot; an explicit `content` prop
   // wins when both are provided.
@@ -253,9 +401,288 @@ export function Layout({
   const hasFooter = footer != null;
   const hasStart = start != null;
   const hasEnd = end != null;
+  const initialStartUsesMiddleScroll = regionUsesMiddleScroll<LayoutPanelProps>(
+    start,
+    LayoutPanel,
+  );
+  const initialContentUsesMiddleScroll =
+    regionUsesMiddleScroll<LayoutContentProps>(resolvedContent, LayoutContent);
+  const initialEndUsesMiddleScroll = regionUsesMiddleScroll<LayoutPanelProps>(
+    end,
+    LayoutPanel,
+  );
+  // The wrapper is intentionally the environment-observing boundary around the
+  // presentational Layout tree; DOM identity survives RSC serialization.
+  // eslint-disable-next-line @astryx/presentational-component
+  const middleRef = useRef<HTMLDivElement>(null);
+  // eslint-disable-next-line @astryx/presentational-component
+  const layoutInnerRef = useRef<HTMLDivElement>(null);
+  // eslint-disable-next-line @astryx/presentational-component
+  const ownedRegionElementsRef = useRef<Set<Element>>(new Set());
+  // eslint-disable-next-line @astryx/presentational-component
+  const [detectedRegions, setDetectedRegions] = useState<DetectedRegions>(
+    () => ({
+      start: {
+        usesMiddleScroll: initialStartUsesMiddleScroll,
+        label: initialStartUsesMiddleScroll
+          ? getRegionLabel<LayoutPanelProps>(start, LayoutPanel)
+          : undefined,
+      },
+      content: {
+        usesMiddleScroll: initialContentUsesMiddleScroll,
+        label: initialContentUsesMiddleScroll
+          ? getRegionLabel<LayoutContentProps>(resolvedContent, LayoutContent)
+          : undefined,
+      },
+      end: {
+        usesMiddleScroll: initialEndUsesMiddleScroll,
+        label: initialEndUsesMiddleScroll
+          ? getRegionLabel<LayoutPanelProps>(end, LayoutPanel)
+          : undefined,
+      },
+    }),
+  );
+
+  useIsomorphicLayoutEffect(() => {
+    if (!isFill) {
+      for (const element of ownedRegionElementsRef.current) {
+        element.removeAttribute('data-layout-scroll-state');
+      }
+      ownedRegionElementsRef.current.clear();
+      return;
+    }
+    const middle = middleRef.current;
+    const layoutInner = layoutInnerRef.current;
+    if (middle == null || layoutInner == null) {
+      return;
+    }
+    const detectRegions = () => {
+      const row =
+        middle.querySelector(':scope > [data-layout-middle-row]') ?? middle;
+      const startLane = row.querySelector(':scope > [data-layout-start-lane]');
+      const contentLane = row.querySelector(
+        ':scope > [data-layout-content-lane]',
+      );
+      const endLane = row.querySelector(':scope > [data-layout-end-lane]');
+      const headerLane = layoutInner.querySelector(
+        ':scope > [data-layout-header-lane]',
+      );
+      const footerLane = layoutInner.querySelector(
+        ':scope > [data-layout-footer-lane]',
+      );
+      if (contentLane == null) {
+        return;
+      }
+      const findRegion = (container: Element | null, region: string) =>
+        Array.from(container?.children ?? []).find(
+          element => element.getAttribute('data-layout-region') === region,
+        ) ?? null;
+      const headerRegion = findRegion(headerLane, 'header');
+      const startRegion = findRegion(startLane, 'panel');
+      const contentRegion = findRegion(contentLane, 'content');
+      const endRegion = findRegion(endLane, 'panel');
+      const footerRegion = findRegion(footerLane, 'footer');
+      const next: DetectedRegions = {
+        start: detectDomRegion(startRegion, 'panel'),
+        content: detectDomRegion(contentRegion, 'content'),
+        end: detectDomRegion(endRegion, 'panel'),
+      };
+      const nextHasMiddleScroll =
+        isFill &&
+        (next.start.usesMiddleScroll ||
+          next.content.usesMiddleScroll ||
+          next.end.usesMiddleScroll);
+      const nextHasExpandedMiddleScroll =
+        nextHasMiddleScroll && supportsFullWidthScrollport(contentWidth);
+
+      for (const element of ownedRegionElementsRef.current) {
+        element.removeAttribute('data-layout-scroll-state');
+      }
+      const nextOwnedRegionElements = new Set<Element>();
+      const setOwnedRegionState = (element: Element | null, state: string) => {
+        if (element != null) {
+          element.setAttribute('data-layout-scroll-state', state);
+          nextOwnedRegionElements.add(element);
+        }
+      };
+      if (nextHasMiddleScroll) {
+        if (next.start.usesMiddleScroll) {
+          setOwnedRegionState(startRegion, 'middle');
+        }
+        if (next.content.usesMiddleScroll) {
+          setOwnedRegionState(contentRegion, 'middle');
+        }
+        if (next.end.usesMiddleScroll) {
+          setOwnedRegionState(endRegion, 'middle');
+        }
+      }
+      if (nextHasExpandedMiddleScroll) {
+        setOwnedRegionState(headerRegion, 'aligned');
+        setOwnedRegionState(footerRegion, 'aligned');
+      }
+      ownedRegionElementsRef.current = nextOwnedRegionElements;
+      // DOM identity is the cross-RSC source of truth; synchronize before paint
+      // and whenever a transparent child changes its rendered root.
+      // eslint-disable-next-line @eslint-react/set-state-in-effect
+      setDetectedRegions(current =>
+        sameDetectedRegions(current, next) ? current : next,
+      );
+
+      mutationObserver.disconnect();
+      for (const lane of [
+        headerLane,
+        startLane,
+        contentLane,
+        endLane,
+        footerLane,
+      ]) {
+        if (lane != null) {
+          mutationObserver.observe(lane, {childList: true});
+        }
+      }
+      for (const region of [
+        headerRegion,
+        startRegion,
+        contentRegion,
+        endRegion,
+        footerRegion,
+      ]) {
+        if (region != null) {
+          mutationObserver.observe(region, {
+            attributes: true,
+            attributeFilter: [
+              'aria-label',
+              'data-layout-region',
+              'data-layout-scroll-owner',
+            ],
+          });
+        }
+      }
+    };
+
+    // LayoutWrapper owns narrowly scoped environment observation so RSC-resolved
+    // roots and child-local root changes remain synchronized without watching
+    // arbitrary descendant mutations.
+    // eslint-disable-next-line @astryx/presentational-component
+    const mutationObserver = new MutationObserver(detectRegions);
+    detectRegions();
+    return () => mutationObserver.disconnect();
+  }, [isFill, contentWidth]);
+
+  const startUsesMiddleScroll = detectedRegions.start.usesMiddleScroll;
+  const contentUsesMiddleScroll = detectedRegions.content.usesMiddleScroll;
+  const endUsesMiddleScroll = detectedRegions.end.usesMiddleScroll;
+  const hasMiddleScroll =
+    isFill &&
+    (startUsesMiddleScroll || contentUsesMiddleScroll || endUsesMiddleScroll);
+  const hasExpandedMiddleScroll =
+    hasMiddleScroll && supportsFullWidthScrollport(contentWidth);
+
+  useIsomorphicLayoutEffect(() => {
+    const middle = middleRef.current;
+    const layoutInner = layoutInnerRef.current;
+    if (middle == null || layoutInner == null) {
+      return;
+    }
+    const updateScrollGeometry = () => {
+      if (!hasExpandedMiddleScroll) {
+        layoutInner.style.setProperty('--layout-scroll-gutter-inline', '0px');
+        layoutInner.style.removeProperty('--layout-middle-client-height');
+        return;
+      }
+      const gutter = Math.max(0, (middle.offsetWidth - middle.clientWidth) / 2);
+      layoutInner.style.setProperty(
+        '--layout-scroll-gutter-inline',
+        `${gutter}px`,
+      );
+      layoutInner.style.setProperty(
+        '--layout-middle-client-height',
+        `${middle.clientHeight}px`,
+      );
+    };
+
+    updateScrollGeometry();
+    if (!hasExpandedMiddleScroll || typeof ResizeObserver === 'undefined') {
+      return;
+    }
+    // eslint-disable-next-line @astryx/presentational-component
+    const resizeObserver = new ResizeObserver(updateScrollGeometry);
+    resizeObserver.observe(middle);
+    return () => resizeObserver.disconnect();
+  }, [hasExpandedMiddleScroll]);
+
+  const startIsPinned = hasMiddleScroll && hasStart && !startUsesMiddleScroll;
+  const endIsPinned = hasMiddleScroll && hasEnd && !endUsesMiddleScroll;
+  const contentIsPinned = hasMiddleScroll && !contentUsesMiddleScroll;
+  const middleScrollLabel =
+    (startUsesMiddleScroll ? detectedRegions.start.label : undefined) ??
+    (contentUsesMiddleScroll ? detectedRegions.content.label : undefined) ??
+    (endUsesMiddleScroll ? detectedRegions.end.label : undefined) ??
+    t('@astryx.layout.middleScrollRegion');
   const slotsValue = useMemo<LayoutSlots>(
-    () => ({hasHeader, hasFooter, hasStart, hasEnd}),
-    [hasHeader, hasFooter, hasStart, hasEnd],
+    () => ({
+      hasHeader,
+      hasFooter,
+      hasStart,
+      hasEnd,
+      hasMiddleScroll,
+      hasExpandedMiddleScroll,
+    }),
+    [
+      hasHeader,
+      hasFooter,
+      hasStart,
+      hasEnd,
+      hasMiddleScroll,
+      hasExpandedMiddleScroll,
+    ],
+  );
+
+  const middleStyles = [
+    ...(hasExpandedMiddleScroll ? [] : stack({direction: 'horizontal'})),
+    styles.middle,
+    !hasExpandedMiddleScroll && styles.middleConstrained,
+    hasMiddleScroll && styles.middleScrollable,
+    hasExpandedMiddleScroll && styles.middleScrollableExpanded,
+    hasMiddleScroll && styles.middleFocusInset,
+  ] as const;
+  const middleStyleProps = hasMiddleScroll
+    ? focusOutlineProps.focusVisible(...middleStyles)
+    : stylex.props(...middleStyles);
+  const middleRegions = (
+    <>
+      <div
+        data-layout-start-lane=""
+        {...stylex.props(
+          startIsPinned ? styles.sideLanePinned : styles.middleRowPassthrough,
+          startIsPinned &&
+            hasExpandedMiddleScroll &&
+            styles.sideLanePinnedExpanded,
+        )}>
+        <AreaProvider area="start">{start}</AreaProvider>
+      </div>
+      <div
+        data-layout-content-lane=""
+        {...stylex.props(
+          ...stackItem({size: 'fill'}),
+          contentIsPinned && styles.contentLanePinned,
+          contentIsPinned &&
+            hasExpandedMiddleScroll &&
+            styles.contentLanePinnedExpanded,
+        )}>
+        <AreaProvider area="content">{resolvedContent}</AreaProvider>
+      </div>
+      <div
+        data-layout-end-lane=""
+        {...stylex.props(
+          endIsPinned ? styles.sideLanePinned : styles.middleRowPassthrough,
+          endIsPinned &&
+            hasExpandedMiddleScroll &&
+            styles.sideLanePinnedExpanded,
+        )}>
+        <AreaProvider area="end">{end}</AreaProvider>
+      </div>
+    </>
   );
 
   const tree = (
@@ -273,6 +700,7 @@ export function Layout({
           style,
         )}>
         <div
+          ref={layoutInnerRef}
           {...stylex.props(
             stylex.defaultMarker(),
             styles.layoutInner,
@@ -283,20 +711,35 @@ export function Layout({
             padding != null && layoutPaddingOuterYVarStyles[padding],
             contentWidth != null && dynamicStyles.contentWidthVar(contentWidth),
           )}>
-          <AreaProvider area="header">{header}</AreaProvider>
           <div
-            {...stylex.props(
-              ...stack({direction: 'horizontal'}),
-              styles.middle,
-              contentWidth != null && dynamicStyles.contentWidth(contentWidth),
-            )}>
-            <AreaProvider area="start">{start}</AreaProvider>
-            <div {...stylex.props(...stackItem({size: 'fill'}))}>
-              <AreaProvider area="content">{resolvedContent}</AreaProvider>
-            </div>
-            <AreaProvider area="end">{end}</AreaProvider>
+            data-layout-header-lane=""
+            {...stylex.props(styles.middleRowPassthrough)}>
+            <AreaProvider area="header">{header}</AreaProvider>
           </div>
-          <AreaProvider area="footer">{footer}</AreaProvider>
+          <div
+            ref={middleRef}
+            tabIndex={hasMiddleScroll ? 0 : undefined}
+            role={hasMiddleScroll ? 'group' : undefined}
+            aria-label={hasMiddleScroll ? middleScrollLabel : undefined}
+            {...middleStyleProps}>
+            <div
+              data-layout-middle-row=""
+              {...stylex.props(
+                ...(hasExpandedMiddleScroll
+                  ? stack({direction: 'horizontal'})
+                  : []),
+                hasExpandedMiddleScroll
+                  ? styles.middleExpandedRow
+                  : styles.middleRowPassthrough,
+              )}>
+              {middleRegions}
+            </div>
+          </div>
+          <div
+            data-layout-footer-lane=""
+            {...stylex.props(styles.middleRowPassthrough)}>
+            <AreaProvider area="footer">{footer}</AreaProvider>
+          </div>
         </div>
       </div>
     </LayoutSlotsContext>
@@ -311,6 +754,11 @@ export function Layout({
   }
 
   return tree;
+}
+
+/** Renders the public Layout through the environment-observing ownership wrapper. */
+export function Layout(props: LayoutProps) {
+  return <LayoutWrapper {...props} />;
 }
 
 Layout.displayName = 'Layout';

@@ -7,7 +7,8 @@
  * @input Uses React StyleX
  * @output Exports LayoutHeader component and LayoutHeaderProps
  * @position Top bar / header area for Layout. Use for page titles, app bars,
- *   toolbar areas, or any fixed-height content at the top of a layout.
+ *   toolbar areas, or any fixed-height content at the top of a layout. Mirrors
+ *   the expanded middle scrollport's stable scrollbar gutters for alignment.
  *
  * SYNC: When modified, update these files to stay in sync:
  * - /packages/core/src/Layout/Layout.doc.mjs
@@ -35,6 +36,22 @@ const styles = stylex.create({
   // Outer shell: owns border/divider and sizing. No padding — that lives on inner.
   header: {
     flexShrink: 0,
+  },
+  alignedScrollGutter: {
+    boxSizing: {
+      default: null,
+      ':is([data-layout-scroll-state="aligned"])': 'border-box',
+    },
+    paddingInlineStart: {
+      default: null,
+      ':is([data-layout-scroll-state="aligned"])':
+        'var(--layout-scroll-gutter-inline, 0px)',
+    },
+    paddingInlineEnd: {
+      default: null,
+      ':is([data-layout-scroll-state="aligned"])':
+        'var(--layout-scroll-gutter-inline, 0px)',
+    },
   },
   // Inner wrapper: owns padding and optional content-width constraint.
   // When --layout-content-width is not set, maxWidth defaults to 'none' (inert).
@@ -162,6 +179,7 @@ export function LayoutHeader({
         themeProps('layout-header'),
         stylex.props(
           styles.header,
+          styles.alignedScrollGutter,
           dynamicStyles.sizing(height ?? null),
 
           resolvedHasDivider && styles.divider,
@@ -170,7 +188,8 @@ export function LayoutHeader({
         className,
         style,
       )}
-      {...props}>
+      {...props}
+      data-layout-region="header">
       <div
         {...stylex.props(
           styles.inner,
