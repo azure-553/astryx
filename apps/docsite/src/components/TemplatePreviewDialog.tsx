@@ -50,7 +50,7 @@ import {
 } from '../generated/shadcnRegistry';
 import {
   shadcnInstallCommand,
-  shadcnPageItemName,
+  shadcnPageItemPath,
 } from '../lib/shadcnRegistry.mjs';
 
 export interface TemplatePreviewItem {
@@ -204,7 +204,7 @@ function TemplatePreviewHeader({
           </Text>
           <Code>
             {shadcnInstallCommand(
-              shadcnPageItemName(item.slug),
+              shadcnPageItemPath(item.slug),
               shadcnRegistryOrigin,
             )}
           </Code>
@@ -346,7 +346,7 @@ export function TemplatePreviewDialog({
 
   const astryxCommand = `npx @astryxdesign/cli template ${current.slug} ./src/app/${current.slug}`;
   const shadcnCommand = shadcnInstallCommand(
-    shadcnPageItemName(current.slug),
+    shadcnPageItemPath(current.slug),
     shadcnRegistryOrigin,
   );
   const handleCopyCmd = useCallback(
