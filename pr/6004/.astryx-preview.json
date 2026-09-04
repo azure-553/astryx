@@ -3,13 +3,13 @@
   "repository": "facebook/astryx",
   "pullRequest": {
     "number": 6004,
-    "headSha": "72b298a8dafc39273f3701d0643cff3ea4386e63",
+    "headSha": "92b74c1ea93cf7037e8507c0a3cf4d3ff1a5256e",
     "headRef": "fix/power-search-use-date-range-input",
     "headRepository": "facebook/astryx",
     "headRepositoryId": "1131202426"
   },
   "sourceRun": {
-    "id": 33841751500,
+    "id": 33855607971,
     "attempt": 1,
     "conclusion": "success"
   },
