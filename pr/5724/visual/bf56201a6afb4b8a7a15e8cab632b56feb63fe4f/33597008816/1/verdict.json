@@ -1,0 +1,97 @@
+{
+  "version": 1,
+  "status": "changed",
+  "generatedAt": "2026-09-02T06:35:14.818Z",
+  "context": {
+    "sha": "bf56201a6afb4b8a7a15e8cab632b56feb63fe4f",
+    "runId": "33597008816",
+    "runAttempt": "1",
+    "headSha": "bf56201a6afb4b8a7a15e8cab632b56feb63fe4f",
+    "baseSha": "42129ab27c8c93c9f364197b68998037b9f93255",
+    "ref": "refs/heads/main",
+    "trustedScope": {
+      "hasStableVisual": true,
+      "broadStableVisual": false,
+      "stableComponents": [
+        "ComplexSelector",
+        "ContextMenu",
+        "DropdownMenu",
+        "MultiSelector",
+        "Popover",
+        "Selector"
+      ],
+      "stableCoreFiles": [
+        "packages/core/src/ComplexSelector/ComplexSelector.tsx",
+        "packages/core/src/ContextMenu/ContextMenu.tsx",
+        "packages/core/src/DropdownMenu/DropdownMenu.tsx",
+        "packages/core/src/DropdownMenu/DropdownMenuSubMenu.tsx",
+        "packages/core/src/MultiSelector/MultiSelector.tsx",
+        "packages/core/src/Popover/usePopover.tsx",
+        "packages/core/src/Selector/Selector.tsx",
+        "packages/core/src/Selector/useSelectorPresentation.ts"
+      ],
+      "stableThemes": [],
+      "canaryPackages": []
+    }
+  },
+  "platform": "linux-arm64",
+  "baseline": {
+    "capturedAt": "2026-09-02T06:00:40.805Z",
+    "sha": "42129ab27c8c93c9f364197b68998037b9f93255",
+    "platform": "linux-arm64"
+  },
+  "counts": {
+    "total": 84,
+    "unchanged": 48,
+    "changed": 0,
+    "added": 36,
+    "removed": 0,
+    "failed": 0
+  },
+  "changes": [],
+  "added": [
+    "core-complexselector--fruit-ripeness-grid__butter-light",
+    "core-complexselector--fruit-ripeness-grid__butter-dark",
+    "core-complexselector--fruit-ripeness-grid__gothic-light",
+    "core-complexselector--fruit-ripeness-grid__gothic-dark",
+    "core-complexselector--fruit-ripeness-grid__stone-light",
+    "core-complexselector--fruit-ripeness-grid__stone-dark",
+    "core-complexselector--fruit-ripeness-grid__y2k-light",
+    "core-complexselector--fruit-ripeness-grid__y2k-dark",
+    "core-complexselector--fruit-ripeness-grid__matcha-light",
+    "core-complexselector--fruit-ripeness-grid__matcha-dark",
+    "core-complexselector--fruit-ripeness-grid__chocolate-light",
+    "core-complexselector--fruit-ripeness-grid__chocolate-dark",
+    "core-contextmenu--default__butter-light",
+    "core-contextmenu--default__butter-dark",
+    "core-contextmenu--default__gothic-light",
+    "core-contextmenu--default__gothic-dark",
+    "core-contextmenu--default__stone-light",
+    "core-contextmenu--default__stone-dark",
+    "core-contextmenu--default__y2k-light",
+    "core-contextmenu--default__y2k-dark",
+    "core-contextmenu--default__matcha-light",
+    "core-contextmenu--default__matcha-dark",
+    "core-contextmenu--default__chocolate-light",
+    "core-contextmenu--default__chocolate-dark",
+    "core-dropdownmenu--default__butter-light",
+    "core-dropdownmenu--default__butter-dark",
+    "core-dropdownmenu--default__gothic-light",
+    "core-dropdownmenu--default__gothic-dark",
+    "core-dropdownmenu--default__stone-light",
+    "core-dropdownmenu--default__stone-dark",
+    "core-dropdownmenu--default__y2k-light",
+    "core-dropdownmenu--default__y2k-dark",
+    "core-dropdownmenu--default__matcha-light",
+    "core-dropdownmenu--default__matcha-dark",
+    "core-dropdownmenu--default__chocolate-light",
+    "core-dropdownmenu--default__chocolate-dark"
+  ],
+  "removed": [],
+  "failures": [],
+  "targeting": {
+    "unexercisedOverrides": [],
+    "undeclaredTargets": [],
+    "uncoveredTargets": []
+  }
+}

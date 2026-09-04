@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "status": "pass",
+  "generatedAt": "2026-09-04T04:30:50.501Z",
+  "context": {
+    "sha": "1c49290f69244145e77731f955a63b700bcebdc1",
+    "runId": "33834939332",
+    "runAttempt": "1",
+    "headSha": "1c49290f69244145e77731f955a63b700bcebdc1",
+    "baseSha": "b3c6619892c660d30e4c42d47c8ec0fd991b6976",
+    "ref": "refs/heads/main",
+    "trustedScope": {
+      "hasStableVisual": true,
+      "broadStableVisual": false,
+      "stableComponents": [
+        "Chat"
+      ],
+      "stableCoreFiles": [
+        "packages/core/src/Chat/useChatStreamScroll.ts"
+      ],
+      "stableThemes": [],
+      "canaryPackages": []
+    }
+  },
+  "platform": "linux-arm64",
+  "baseline": {
+    "capturedAt": "2026-09-03T16:04:27.248Z",
+    "sha": "5d873281643e752567722ecb691325de1b8b2f86",
+    "platform": "linux-arm64"
+  },
+  "counts": {
+    "total": 2,
+    "unchanged": 2,
+    "changed": 0,
+    "added": 0,
+    "removed": 0,
+    "failed": 0
+  },
+  "changes": [],
+  "added": [],
+  "removed": [],
+  "failures": [],
+  "targeting": {
+    "unexercisedOverrides": [],
+    "undeclaredTargets": [],
+    "uncoveredTargets": []
+  }
+}

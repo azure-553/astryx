@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "status": "skipped",
+  "generatedAt": "2026-09-02T18:20:42.745Z",
+  "reason": "Broad stable scope is deferred to the daily release gate. It covers 4332 trusted baseline shots instead of recapturing them for this PR.",
+  "context": {
+    "sha": "ceaccea388daec69a95d1888c03ba481776e533a",
+    "headSha": "ceaccea388daec69a95d1888c03ba481776e533a",
+    "baseSha": "ac68796353a1e51f6e1316557602755d1f1fc621",
+    "runId": "33662688286",
+    "runAttempt": "1",
+    "trustedScope": {
+      "hasStableVisual": true,
+      "broadStableVisual": true,
+      "stableComponents": [
+        "BottomSheet",
+        "TabList"
+      ],
+      "stableCoreFiles": [
+        "packages/core/src/BottomSheet/BottomSheetPanel.tsx",
+        "packages/core/src/TabList/TabList.tsx",
+        "packages/core/src/hooks/focusableSelector.ts",
+        "packages/core/src/hooks/index.ts",
+        "packages/core/src/hooks/scrollableTabStop.ts",
+        "packages/core/src/hooks/useScrollableTabStop.ts"
+      ],
+      "stableThemes": [],
+      "canaryPackages": []
+    }
+  },
+  "counts": {
+    "total": 4332,
+    "unchanged": 0,
+    "changed": 0,
+    "added": 0,
+    "removed": 0,
+    "failed": 0
+  },
+  "components": [
+    "BottomSheet",
+    "TabList"
+  ],
+  "changes": [],
+  "added": [],
+  "removed": [],
+  "failures": []
+}

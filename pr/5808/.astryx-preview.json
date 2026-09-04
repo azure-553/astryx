@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "repository": "facebook/astryx",
+  "pullRequest": {
+    "number": 5808,
+    "headSha": "531a941c1f9ad2af6cd3538ce1b72cc14c7c7123",
+    "headRef": "fix/nested-theme-doc-candidates",
+    "headRepository": "facebook/astryx",
+    "headRepositoryId": "1131202426"
+  },
+  "sourceRun": {
+    "id": 33589848514,
+    "attempt": 1,
+    "conclusion": "success"
+  },
+  "targets": {
+    "storybook": {
+      "available": false,
+      "path": "pr/5808/",
+      "indexSha256": null
+    },
+    "sandbox": {
+      "available": false,
+      "path": "pr/5808/sandbox/",
+      "indexSha256": null
+    }
+  }
+}

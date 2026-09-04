@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "status": "changed",
+  "generatedAt": "2026-09-02T23:39:41.194Z",
+  "context": {
+    "sha": "d33270d5c3df6613b5832b3d082f46a958bb9cb1",
+    "runId": "33693848709",
+    "runAttempt": "1",
+    "headSha": "d33270d5c3df6613b5832b3d082f46a958bb9cb1",
+    "baseSha": "b1f1d68746edc2e0d84eccc6598748606a7c5efb",
+    "ref": "refs/heads/main",
+    "trustedScope": {
+      "hasStableVisual": true,
+      "broadStableVisual": false,
+      "stableComponents": [
+        "PowerSearch"
+      ],
+      "stableCoreFiles": [
+        "packages/core/src/PowerSearch/PowerSearch.tsx"
+      ],
+      "stableThemes": [],
+      "canaryPackages": []
+    }
+  },
+  "platform": "linux-arm64",
+  "baseline": {
+    "capturedAt": "2026-09-02T06:00:40.805Z",
+    "sha": "42129ab27c8c93c9f364197b68998037b9f93255",
+    "platform": "linux-arm64"
+  },
+  "counts": {
+    "total": 14,
+    "unchanged": 2,
+    "changed": 0,
+    "added": 12,
+    "removed": 0,
+    "failed": 0
+  },
+  "changes": [],
+  "added": [
+    "core-powersearch--default__butter-light",
+    "core-powersearch--default__butter-dark",
+    "core-powersearch--default__chocolate-light",
+    "core-powersearch--default__chocolate-dark",
+    "core-powersearch--default__gothic-light",
+    "core-powersearch--default__gothic-dark",
+    "core-powersearch--default__matcha-light",
+    "core-powersearch--default__matcha-dark",
+    "core-powersearch--default__stone-light",
+    "core-powersearch--default__stone-dark",
+    "core-powersearch--default__y2k-light",
+    "core-powersearch--default__y2k-dark"
+  ],
+  "removed": [],
+  "failures": [],
+  "targeting": {
+    "unexercisedOverrides": [],
+    "undeclaredTargets": [],
+    "uncoveredTargets": []
+  }
+}
