@@ -33,6 +33,17 @@ describe('AvatarGroupOverflow', () => {
     expect(overflow).toHaveAttribute('role', 'img');
   });
 
+  it('keeps a caller-supplied role on the static overflow', () => {
+    render(
+      <AvatarGroup>
+        <Avatar name="Alice" />
+        <AvatarGroupOverflow count={5} role="note" />
+      </AvatarGroup>,
+    );
+
+    expect(screen.getByLabelText('5 more')).toHaveAttribute('role', 'note');
+  });
+
   it('reflects the group size on the overflow chip', () => {
     render(
       <AvatarGroup size="lg">
