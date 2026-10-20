@@ -21,6 +21,18 @@ describe('AvatarGroupOverflow', () => {
     expect(overflow).toHaveTextContent('+5');
   });
 
+  it('exposes the static overflow as a named image', () => {
+    render(
+      <AvatarGroup>
+        <Avatar name="Alice" />
+        <AvatarGroupOverflow count={5} />
+      </AvatarGroup>,
+    );
+
+    const overflow = screen.getByRole('img', {name: '5 more'});
+    expect(overflow).toHaveAttribute('role', 'img');
+  });
+
   it('reflects the group size on the overflow chip', () => {
     render(
       <AvatarGroup size="lg">
@@ -66,7 +78,7 @@ describe('AvatarGroupOverflow', () => {
       </AvatarGroup>,
     );
 
-    const overflow = screen.getByLabelText('3 more');
+    const overflow = screen.getByRole('button', {name: '3 more'});
     expect(overflow.tagName).toBe('BUTTON');
   });
 

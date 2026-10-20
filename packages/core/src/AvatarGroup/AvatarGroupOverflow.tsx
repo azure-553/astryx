@@ -209,6 +209,7 @@ export function AvatarGroupOverflow({
     <span
       ref={ref}
       {...rest}
+      role="img"
       aria-label={label}
       {...mergeProps(
         themeProps('avatar-group-overflow', {size, shape}),
