@@ -208,8 +208,14 @@ async function reconcile({
   createIfMissing,
   fallbackMessage,
   execute,
+  baseStats,
 } = {}) {
   const paths = fixture(value, {analysis});
+  const baseStatsPath = path.join(
+    path.dirname(paths.analysis),
+    'size-base.json',
+  );
+  if (baseStats) fs.writeFileSync(baseStatsPath, JSON.stringify(baseStats));
   const {github, state} = githubFixture({
     value: githubFixtureValue,
     comments,
@@ -225,6 +231,7 @@ async function reconcile({
     expectedIdentity: value,
     analysisPath: paths.analysis,
     metadataPath: paths.metadata,
+    baseStatsPath,
     a11yPath: paths.a11y,
     lookupPreview: async () => (previewAvailable ? VERCEL_ORIGIN : null),
     probePreview: async () => true,
@@ -478,8 +485,14 @@ describe('trusted PR preview identity', () => {
       'preview-comment',
       'spec-only-reconcile',
       'comment',
+      'report',
     ]);
-    for (const name of writeCapableJobs) {
+    // The report job writes only a commit status, for the head the trusted
+    // event names; it mutates no pull request.
+    expect(PR_COMMENT_WORKFLOW.jobs.report.permissions).toEqual({
+      statuses: 'write',
+    });
+    for (const name of writeCapableJobs.filter(job => job !== 'report')) {
       const expected =
         name === 'preview-comment'
           ? "needs.resolve-preview.outputs.valid == 'true'"
@@ -536,6 +549,119 @@ describe('trusted PR preview identity', () => {
         run,
       }),
     ).rejects.toThrow(/expected exactly one current pull request/);
+  });
+});
+
+describe('PR Comment keeps its outcome off main', () => {
+  // workflow_run attaches these jobs to main's latest commit, so a failing step
+  // here would turn main red for a pull request's problem.
+  const LANE = ['resolve', 'spec-only-reconcile', 'comment', 'report'];
+  const OPTIONAL = new Set(['actions/download-artifact@v8']);
+
+  it.each(LANE)('never fails the run from the %s job', name => {
+    for (const step of PR_COMMENT_WORKFLOW.jobs[name].steps) {
+      expect(step['continue-on-error'], `${name}: ${step.name}`).toBe(true);
+    }
+  });
+
+  it.each(['resolve', 'spec-only-reconcile', 'comment'])(
+    'counts every required %s step in the outcome it reports',
+    name => {
+      const job = PR_COMMENT_WORKFLOW.jobs[name];
+      for (const step of job.steps.filter(item => !OPTIONAL.has(item.uses))) {
+        expect(step.id, `${name}: ${step.name}`).toBeTruthy();
+        expect(job.outputs.failed, `${name}: ${step.name}`).toContain(
+          `steps.${step.id}.outcome == 'failure'`,
+        );
+      }
+      for (const step of job.steps.filter(item => OPTIONAL.has(item.uses))) {
+        expect(job.outputs.failed).not.toContain(`steps.${step.id}.`);
+      }
+    },
+  );
+
+  it('reports the outcome on the head of the run the event names', () => {
+    const report = PR_COMMENT_WORKFLOW.jobs.report;
+    expect(report.needs).toEqual(['resolve', 'spec-only-reconcile', 'comment']);
+    const [step] = report.steps;
+    expect(step.env.HEAD_SHA).toBe('${{ github.event.workflow_run.head_sha }}');
+    for (const name of ['resolve', 'spec-only-reconcile', 'comment']) {
+      expect(step.env.FAILED).toContain(
+        `needs.${name}.outputs.failed == 'true'`,
+      );
+    }
+    // A cancelled job published nothing; it is not an up-to-date report.
+    expect(step.env.FAILED).toContain("contains(needs.*.result, 'cancelled')");
+  });
+
+  it.each([
+    [
+      'resolve',
+      'Resolve trusted PR identity',
+      "steps.checkout.outcome == 'success'",
+    ],
+    [
+      'spec-only-reconcile',
+      'Remove stale preview links from an existing report',
+      "steps.checkout.outcome == 'success'",
+    ],
+    [
+      'comment',
+      'Reconfirm trusted PR identity',
+      "steps.setup.outcome == 'success'",
+    ],
+  ])(
+    'still skips the %s work after its checkout or install fails',
+    (job, name, condition) => {
+      const step = PR_COMMENT_WORKFLOW.jobs[job].steps.find(
+        item => item.name === name,
+      );
+      expect(step.if).toBe(condition);
+    },
+  );
+
+  it('gates every later comment step on the confirmed identity', () => {
+    const steps = PR_COMMENT_WORKFLOW.jobs.comment.steps;
+    const after = steps.slice(
+      steps.findIndex(step => step.id === 'identity') + 1,
+    );
+    for (const step of after) {
+      expect(step.if, step.name).toContain(
+        "steps.identity.outputs.valid == 'true'",
+      );
+    }
+  });
+
+  it.each([
+    ['true', 'failure'],
+    ['false', 'success'],
+  ])('posts PR Comment as a status when FAILED=%s', async (failed, state) => {
+    const [step] = PR_COMMENT_WORKFLOW.jobs.report.steps;
+    const createCommitStatus = vi.fn(async () => ({}));
+    const previousEnv = {...process.env};
+    Object.assign(process.env, {HEAD_SHA: HEAD, FAILED: failed});
+    try {
+      await new ASYNC_FUNCTION('context', 'github', step.with.script)(
+        {
+          repo: {owner: 'facebook', repo: 'astryx'},
+          serverUrl: 'https://github.com',
+          runId: 42,
+        },
+        {rest: {repos: {createCommitStatus}}},
+      );
+    } finally {
+      process.env = previousEnv;
+    }
+    expect(createCommitStatus).toHaveBeenCalledWith(
+      expect.objectContaining({
+        owner: 'facebook',
+        repo: 'astryx',
+        sha: HEAD,
+        context: 'PR Comment',
+        state,
+        target_url: 'https://github.com/facebook/astryx/actions/runs/42',
+      }),
+    );
   });
 });
 
@@ -774,6 +900,25 @@ describe('PR comment preview reconciliation', () => {
     expect(withPrior.state.created).toHaveLength(0);
     expect(withPrior.state.updated).toHaveLength(1);
   });
+
+  it.each([
+    ['the exact head', HEAD, true],
+    ['another head', 'b'.repeat(40), false],
+  ])(
+    'passes base size stats only when they name %s',
+    async (_label, headSha, used) => {
+      const seen = [];
+      await reconcile({
+        baseStats: {headSha, baseComponentStats: {}, baseBundlePackages: []},
+        execute: (_node, args) => {
+          seen.push(args);
+          return '## PR Analysis Report\n';
+        },
+      });
+      expect(seen).toHaveLength(1);
+      expect(seen[0].includes('--base-stats')).toBe(used);
+    },
+  );
 
   it('falls back to a safe current message when analysis rendering fails', async () => {
     const stale = {
